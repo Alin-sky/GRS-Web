@@ -4,9 +4,10 @@
 （见根目录 `.gitignore` 的 `prompts/*` 规则）。仓库里**只保留**：
 
 - `README.md`（本文件，格式契约说明）
-- `*.example.md`（**仅含 JSON 输出契约的骨架**，不含任何真实提示词正文）
+- `*.example.md`（**轻量可用的起步版提示词**：含通用类别、判定原则与 JSON 输出契约，复制成真名即可跑）
 
-> ⚠️ `*.example.md` 是**占位骨架**，不是可用的提示词。照抄它不会得到正确的审核行为。
+> ℹ️ `*.example.md` 是**精简起步版**，可直接使用；但**刻意略去了 political（涉政）等与地区/平台强相关的
+> 敏感判定标准**，暴露/色情也只给高层口径。正式部署请按所在地法律法规与平台规范自行补全这些部分。
 
 ---
 
@@ -29,7 +30,8 @@ cp prompts/text_moderation.example.md        prompts/text_moderation.md
 cp prompts/image_moderation.example.md       prompts/image_moderation.md
 cp prompts/image_moderation_strict.example.md prompts/image_moderation_strict.md
 cp prompts/safeguard_moderation.example.md   prompts/safeguard_moderation.md
-# 然后按下面的「输出契约」补全每个文件的正文本地内容
+# 复制后即可直接使用（轻量起步版）；如需更强口径，按下面「格式契约」增补类别与判定细则，
+# 并自行补上 political 等本地合规相关的判定标准。
 ```
 
 补全后 **不要** `git add` 这些 `*.md` 正文文件（它们已被 `.gitignore` 排除）。
