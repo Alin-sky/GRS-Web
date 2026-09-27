@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "defaultCategory": "general",
+  "defaultKey": "auto",
+
+  "vars": {
+    "tags":       { "label": "标签器标签", "sample": "1girl, solo, outdoors, smile", "source": "wd14.general" },
+    "filename":   { "label": "原文件名",  "sample": "IMG_20230512_143000.jpg",      "source": "fs" },
+    "exif_date":  { "label": "EXIF 日期", "sample": "2023-05-12 14:30:00",          "source": "exif" },
+    "resolution": { "label": "分辨率",    "sample": "4032x3024",                    "source": "sharp" }
+  },
+
+  "categories": [
+    {
+      "id": "general",
+      "name": "普通图片",
+      "enabled": true,
+      "description": "日常随手拍、无明显主题的通用图片",
+      "system": "你是图片内容分析助手。只输出 JSON，不要 Markdown。",
+      "outputSchema": {
+        "category": "所属分类（从给定列表中选一个）",
+        "kind": "图片种类（从给定键值中选一个）",
+        "description": "不超过 16 字的中文客观描述",
+        "era_hint": "年代推断，如 2000s / 2010s / 2020s；无法判断返回 unknown",
+        "is_screenshot": "是否截图/屏幕翻拍（bool）",
+        "is_document": "是否票据/证件/文档（bool）",
+        "is_blurry": "是否明显模糊废片（bool）",
+        "is_black": "是否黑图/大面积遮挡（bool）"
+      },
+      "keys": {
+        "auto":  { "name": "自动识别", "enabled": true, "order": 0,
+                   "prompt": "先判断这张图片属于哪个分类与种类，再按该种类要求输出。{tags}" },
+        "人物":  { "name": "人物", "enabled": true, "order": 1,
+                   "prompt": "重点描述画面中的人物：人数、姿态、场景关系、是否合影。参考标签：{tags}" },
+        "风景":  { "name": "风景", "enabled": true, "order": 2,
+                   "prompt": "重点描述自然/城市景观：地形、天气、光线、地标线索。参考标签：{tags}" },
+        "物件":  { "name": "物件宠物", "enabled": true, "order": 3,
+                   "prompt": "重点描述主体物件或宠物的品类、颜色、状态。" },
+        "文档":  { "name": "证件文档", "enabled": true, "order": 4,
+                   "prompt": "描述文档类型与关键文字线索（不要抄录隐私全量内容）。" },
+        "怀旧":  { "name": "怀旧老照片", "enabled": true, "order": 5,
+                   "prompt": "这是老照片。请根据画质、服装、器材特征推断大致年代，只给年代区间，不要给精确日期。" }
+      },
+      "keyOrder": ["auto", "人物", "风景", "物件", "文档", "怀旧"]
+    },
+
+    {
+      "id": "anime",
+      "name": "动漫图片",
+      "enabled": true,
+      "description": "二次元/插画类图片，NSFW 审查时优先使用",
+      "system": "你是二次元图片内容分析助手。只输出 JSON，不要 Markdown。",
+      "outputSchema": {
+        "category": "所属分类",
+        "kind": "图片种类",
+        "description": "不超过 16 字的中文客观描述",
+        "nsfw_hint": "safe|suggestive|explicit"
+      },
+      "keys": {
+        "auto":     { "name": "自动识别", "enabled": true, "order": 0, "prompt": "判断该图的种类与暴露程度。{tags}" },
+        "角色立绘": { "name": "角色立绘", "enabled": true, "order": 1, "prompt": "描述角色特征与着装完整度。{tags}" },
+        "场景图":   { "name": "场景图", "enabled": true, "order": 2, "prompt": "描述背景场景与氛围。{tags}" },
+        "色情":     { "name": "色情图片", "enabled": true, "order": 3,
+                     "prompt": "严格审查暴露程度：分档判断（safe/suggestive/explicit），列出具体暴露部位与行为。{tags}" },
+        "摄影":     { "name": "摄影图片", "enabled": true, "order": 4, "prompt": "这是摄影/实拍类图片，按实拍标准描述。{tags}" }
+      },
+      "keyOrder": ["auto", "角色立绘", "场景图", "色情", "摄影"]
+    },
+
+    {
+      "id": "photo",
+      "name": "摄影图片",
+      "enabled": true,
+      "description": "相机/手机实拍",
+      "system": "你是摄影图片分析助手。只输出 JSON。",
+      "outputSchema": { "category": "所属分类", "kind": "图片种类", "description": "不超过 16 字的中文客观描述" },
+      "keys": { "auto": { "name": "自动识别", "enabled": true, "order": 0, "prompt": "描述拍摄主题与器材线索（如有）。" } },
+      "keyOrder": ["auto"]
+    }
+  ]
+}

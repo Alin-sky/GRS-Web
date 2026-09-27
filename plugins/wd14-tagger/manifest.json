@@ -1,0 +1,104 @@
+{
+  "id": "wd14-tagger",
+  "name": "WD14 动漫标签预筛",
+  "version": "1.3.0",
+  "description": "通过 WD14 标签器识别动漫图片的裸足/大胸/泳装/色情等特征，并提供可配置的与视觉模型的联动策略",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "host": {
+    "minVersion": "0.1.0"
+  },
+  "hostApi": "1.0",
+  "services": {
+    "provides": [
+      "wd14",
+      "linkage"
+    ],
+    "injects": [
+      "logger"
+    ]
+  },
+  "contributes": {
+    "config": {
+      "schemaResolver": "configSchema"
+    },
+    "views": [],
+    "flowRole": "contribute",
+    "capabilities": [
+      {
+        "id": "image.tag",
+        "event": "moderation:image:tag",
+        "mode": "collect",
+        "outputSchema": "ModerationTagContribution"
+      },
+      {
+        "id": "image.linkage",
+        "event": "moderation:image:linkage",
+        "mode": "first",
+        "outputSchema": "ModerationVerdict"
+      }
+    ],
+    "nodes": [
+      {
+        "ref": "plugin.wd14-tagger.tag",
+        "title": "WD14 动漫标签预筛",
+        "desc": "对图片打动漫特征标签并写入工作上下文（work.tags），供下游判定节点（如关键词检测）复用；本节点不产出最终判定。",
+        "icon": "🏷️",
+        "kind": "plugin",
+        "modality": [
+          "image"
+        ],
+        "output": "ModerationTagContribution",
+        "role": "contribute",
+        "defaultCombine": "branch",
+        "combineEditable": false,
+        "canParallel": false,
+        "multiInstance": false,
+        "defaultTimeoutMs": 15000,
+        "costHint": "free",
+        "failurePolicyOptions": [
+          "inherit",
+          "block",
+          "review"
+        ],
+        "installHint": "",
+        "configHint": "需要本机 WD14 标签服务可达；地址与联动策略在「插件管理 → wd14-tagger」配置",
+        "readinessRpc": "wd14.status",
+        "params": []
+      }
+    ],
+    "finalizers": [
+      {
+        "ref": "plugin.wd14-tagger.linkage",
+        "title": "WD14 终裁联动",
+        "desc": "在图像流程出口前对最终判定做一次联动处理（提级/降级/融合），策略由「插件管理 → wd14-tagger」的联动配置决定；可在画布「终裁处理」泳道停用。",
+        "kind": "plugin",
+        "modality": [
+          "image"
+        ],
+        "role": "finalize",
+        "capability": "image.linkage",
+        "mode": "first",
+        "enabled": true,
+        "costHint": "free",
+        "params": []
+      }
+    ],
+    "floors": []
+  },
+  "permissions": [
+    "net:local",
+    "rpc"
+  ],
+  "integrity": {
+    "maxOutputBytes": 8192
+  },
+  "dependencies": {},
+  "source": {
+    "type": "builtin"
+  }
+}

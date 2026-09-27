@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- GRS 品牌标记 · 「开口同心双环」（a1 摆正版）
+       立意：环不闭合（恰好 2 个缺口）⇒ 可逆、可回滚；两缺口落在水平轴（3 点 / 9 点方向）。
+       **轮廓**具 180° 点对称与左右镜像对称 ⇒ 正视而不斜置；唯一的不对称是内环**上弧**用黄铜（焦点），
+       该弧本身以竖轴对称，故整体仍读作「对称的形」。
+       层级：外环 r=12.2 线宽 3.6（主）> 内环 r=5.4 线宽 3.0（次）；圆角端头统一。
+       颜色写死（favicon 读不到页面 CSS 变量）：钴蓝 #3987f0 + 黄铜 #f0c468；
+       每段弧下垫 1 单位中性描边 #141821@0.5 —— 黄铜对白底对比仅约 1.6:1，靠它兜底。
+       纯图形、无文字元素；主色 2 个；无渐变；不写死 width/height（随 viewBox 自适应）。 -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M27.31 20.57A12.2 12.2 0 0 1 4.69 20.57" stroke="#141821" stroke-opacity="0.5" stroke-width="5.6"/>
+    <path d="M4.69 11.43A12.2 12.2 0 0 1 27.31 11.43" stroke="#141821" stroke-opacity="0.5" stroke-width="5.6"/>
+    <path d="M19.88 19.75A5.4 5.4 0 0 1 12.12 19.75" stroke="#141821" stroke-opacity="0.5" stroke-width="5"/>
+    <path d="M12.12 12.25A5.4 5.4 0 0 1 19.88 12.25" stroke="#141821" stroke-opacity="0.5" stroke-width="5"/>
+    <path d="M27.31 20.57A12.2 12.2 0 0 1 4.69 20.57" stroke="#3987f0" stroke-width="3.6"/>
+    <path d="M4.69 11.43A12.2 12.2 0 0 1 27.31 11.43" stroke="#3987f0" stroke-width="3.6"/>
+    <path d="M19.88 19.75A5.4 5.4 0 0 1 12.12 19.75" stroke="#3987f0" stroke-width="3"/>
+    <path d="M12.12 12.25A5.4 5.4 0 0 1 19.88 12.25" stroke="#f0c468" stroke-width="3"/>
+  </g>
+</svg>

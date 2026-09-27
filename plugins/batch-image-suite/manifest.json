@@ -1,0 +1,65 @@
+{
+  "id": "batch-image-suite",
+  "name": "批量图片处理套件",
+  "version": "1.0.0",
+  "description": "本地磁盘图片整理 + 动漫图 NSFW 审查，同一插件两种模式。全程只读处理原始素材。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.0",
+
+  "defaultEnabled": false,
+
+  "services": {
+    "provides": ["batchImage"],
+    "injects": ["wd14", "logger", "sharp", "fs", "vision", "moderator"]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+    "ui": { "panel": "batch" },
+
+    "// flowRole": "task = 任务型插件：不提供审核判定能力，注册表层直接排除，不出现在画布节点面板（架构 §8.6 / 坑②）",
+    "flowRole": "task",
+
+    "capabilities": [],
+    "commands": [
+      { "id": "resumeLast", "title": "继续上次任务", "rpc": "task.resume" }
+    ],
+    "views": [
+      {
+        "id": "main",
+        "category": "batch",
+        "title": "批量图片处理",
+        "icon": "🖼️",
+        "order": 100,
+        "schemaResolver": "viewSchema",
+        "refreshOn": ["config.mode"]
+      },
+      {
+        "id": "export",
+        "category": "batch",
+        "title": "导出配置（ExportProfile）",
+        "icon": "📦",
+        "order": 200,
+        "schemaFile": "views/export.schema.json"
+      }
+    ]
+  },
+
+  "permissions": [
+    "fs:read", "fs:write", "net:local", "rpc", "assets",
+    "moderation:use", "vision:use", "sharp:use"
+  ],
+
+  "integrity": { "maxOutputBytes": 8192 },
+
+  "dependencies": {
+    "sharp": "^0.35.3"
+  },
+
+  "source": { "type": "builtin" }
+}

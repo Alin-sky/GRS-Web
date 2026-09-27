@@ -1,0 +1,159 @@
+{
+  "version": 1,
+
+  "state": {
+    "taskId": null,
+    "profiles": [],
+    "profileId": "photo-organize-default",
+    "targetDir": "",
+    "plan": null,
+    "jobId": null,
+    "exportStatus": null
+  },
+
+  "sections": [
+    {
+      "id": "profile",
+      "title": "① 选择导出预设",
+      "icon": "📦",
+      "fields": [
+        {
+          "type": "select",
+          "bind": "state.profileId",
+          "label": "ExportProfile 预设",
+          "source": { "rpc": "export.profiles" },
+          "labelField": "name",
+          "valueField": "id"
+        },
+        {
+          "type": "markdown",
+          "content": "六个内置预设：照片整理（默认）· NSFW 分级导出 · 仅清单 · 待筛候选导出 · 保留原目录结构 · 硬链接零占用。内置预设不可删除，可另存为副本后修改。"
+        },
+        {
+          "type": "keyvalue-list",
+          "bind": "state.profileSummary",
+          "label": "当前预设摘要（只读）",
+          "readonly": true
+        }
+      ]
+    },
+
+    {
+      "id": "target",
+      "title": "② 目标与动作",
+      "icon": "🎯",
+      "fields": [
+        {
+          "type": "folder-picker",
+          "bind": "state.targetDir",
+          "label": "导出到",
+          "placeholder": "E:\\export\\整理结果",
+          "validate": { "rpc": "fs.statDir" },
+          "browse": true
+        },
+        {
+          "type": "alert",
+          "tone": "warn",
+          "content": "**安全红线**：`move` 动作仅允许从系统自建的 `_待后续筛选_无用候选` 移出；源素材目录绝对禁止移动或删除，后端会二次校验并返回 403。"
+        },
+        {
+          "type": "radio-group",
+          "bind": "state.action",
+          "label": "导出动作",
+          "options": [
+            { "value": "copy", "label": "复制", "desc": "默认。原文件保持不动" },
+            { "value": "hardlink", "label": "硬链接", "desc": "零额外磁盘，同卷；跨卷自动回退复制" },
+            { "value": "none", "label": "仅清单", "desc": "只导 report/manifest，不动图片" }
+          ]
+        },
+        {
+          "type": "path-template",
+          "bind": "state.structureTemplate",
+          "label": "目录结构模板",
+          "default": "{year}/{month}/{category}/{name}",
+          "placeholders": ["{year}", "{month}", "{category}", "{name}", "{level}", "{srcRelDir}", "{pendingReason}"]
+        },
+        {
+          "type": "checkbox-group",
+          "bind": "state.levels",
+          "label": "仅导出这些风险等级（空=全部）",
+          "options": [
+            { "value": "safe", "label": "safe" }, { "value": "low", "label": "low" },
+            { "value": "medium", "label": "medium" }, { "value": "high", "label": "high" },
+            { "value": "critical", "label": "critical" }
+          ]
+        },
+        { "type": "switch", "bind": "state.pendingOnly", "label": "只导待筛候选", "default": false },
+        { "type": "switch", "bind": "state.excludePending", "label": "排除待筛候选", "default": false },
+        { "type": "switch", "bind": "state.sidecar", "label": "附带同名 .json 元数据", "default": true },
+        { "type": "select", "bind": "state.manifest", "label": "清单格式", "default": "csv",
+          "options": [
+            { "value": "none", "label": "不导清单" }, { "value": "csv", "label": "CSV" },
+            { "value": "json", "label": "JSON" }, { "value": "both", "label": "两者都要" }
+          ] }
+      ]
+    },
+
+    {
+      "id": "plan",
+      "title": "③ 预演（dry-run，不写盘）",
+      "icon": "🧪",
+      "fields": [
+        {
+          "type": "datatable",
+          "source": { "rpc": "export.plan", "params": { "taskId": "$state.taskId", "profileId": "$state.profileId", "targetDir": "$state.targetDir" } },
+          "bind": "state.plan",
+          "columns": [
+            { "key": "srcName", "label": "源文件" },
+            { "key": "destRel", "label": "目标相对路径" },
+            { "key": "action", "label": "动作" }
+          ],
+          "emptyText": "点「预演」生成前 200 条计划"
+        }
+      ]
+    },
+
+    {
+      "id": "execute",
+      "title": "④ 执行导出",
+      "icon": "🚀",
+      "fields": [
+        { "type": "progress", "bind": "state.exportStatus", "label": "导出进度" }
+      ]
+    }
+  ],
+
+  "actions": [
+    {
+      "id": "plan", "type": "button", "label": "🧪 预演（前 200 条）", "style": "ghost",
+      "rpc": "export.plan",
+      "params": { "taskId": "$state.taskId", "profileId": "$state.profileId", "targetDir": "$state.targetDir" },
+      "onSuccess": [ { "set": { "state.plan": "$result" } } ]
+    },
+    {
+      "id": "saveProfile", "type": "button", "label": "💾 另存为我的预设", "style": "ghost",
+      "rpc": "export.upsert",
+      "params": { "profile": "$state.currentProfile" }
+    },
+    {
+      "id": "start", "type": "button", "label": "▶ 开始导出", "style": "primary",
+      "rpc": "export.start",
+      "params": { "taskId": "$state.taskId", "profileId": "$state.profileId", "targetDir": "$state.targetDir" },
+      "onSuccess": [ { "set": { "state.jobId": "$result.jobId" } }, { "toast": "导出任务已启动" } ]
+    },
+    {
+      "id": "stop", "type": "button", "label": "■ 停止导出", "style": "danger",
+      "rpc": "export.stop", "params": { "jobId": "$state.jobId" }
+    }
+  ],
+
+  "poll": [
+    {
+      "when": { "state.jobId": null },
+      "rpc": "export.status",
+      "params": { "jobId": "$state.jobId" },
+      "intervalMs": 1000,
+      "into": "state.exportStatus"
+    }
+  ]
+}

@@ -1,0 +1,263 @@
+{
+  "server": {
+    "port": 11451,
+    "host": "0.0.0.0",
+    "cors": true,
+    "maxRequestSize": "10mb",
+    "trustedProxyIps": [
+      "127.0.0.1",
+      "::1",
+      "::ffff:127.0.0.1"
+    ]
+  },
+  "ollama": {
+    "host": "http://127.0.0.1:11434",
+    "visionHost": "http://127.0.0.1:11434",
+    "textModel": "gpt-oss-safeguard:20b",
+    "visionModel": "qwen3-vl:8b-instruct",
+    "options": {
+      "temperature": 0.1,
+      "top_p": 0.8,
+      "num_predict": 512,
+      "num_ctx": 16384
+    },
+    "keepAlive": "5m",
+    "moderationKeepAlive": "2m",
+    "chatKeepAlive": "5m",
+    "comparisonModels": [
+      "qwen3:14b",
+      "qwen3:8b"
+    ],
+    "comparisonSchedule": "04:00",
+    "comparisonEnabled": true,
+    "timeout": 60000,
+    "maxRetries": 2,
+    "dualGpu": false,
+    "availableModels": [
+      {
+        "id": "gpt-oss-safeguard:20b",
+        "name": "GPT-OSS-Safeguard 20B",
+        "note": "OpenAI安全分类专用模型",
+        "icon": "shield",
+        "provider": "openai"
+      },
+      {
+        "id": "qwen3:8b",
+        "name": "Qwen3 8B",
+        "note": "轻量通用模型",
+        "icon": "qwen",
+        "provider": "qwen"
+      },
+      {
+        "id": "qwen3:4b",
+        "name": "Qwen3 4B",
+        "note": "极速模型",
+        "icon": "qwen",
+        "provider": "qwen"
+      },
+      {
+        "id": "qwen3:1.8b",
+        "name": "Qwen3 1.8B",
+        "note": "超轻量模型",
+        "icon": "qwen",
+        "provider": "qwen"
+      },
+      {
+        "id": "qwen3-14b",
+        "name": "Qwen3 14B",
+        "note": "原默认审核模型",
+        "icon": "qwen",
+        "provider": "qwen"
+      }
+    ]
+  },
+  "qwenCloud": {
+    "enabled": true,
+    "billingSource": "dashscope",
+    "apiKey": "YOUR_DASHSCOPE_API_KEY",
+    "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-turbo",
+    "fallbackModel": "qwen-plus",
+    "visionModel": "qwen3.8-flash",
+    "visionEnabled": false,
+    "timeout": 30000
+  },
+  "tokenPlan": {
+    "apiKey": "YOUR_TOKEN_PLAN_API_KEY",
+    "endpoint": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    "timeout": 60000
+  },
+  "contentSafety": {
+    "enabled": true,
+    "textEnabled": true,
+    "imageEnabled": false,
+    "accessKeyId": "YOUR_ALIBABA_CLOUD_ACCESS_KEY_ID",
+    "accessKeySecret": "YOUR_ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+    "region": "cn-shanghai",
+    "endpoint": "green-cip.cn-shanghai.aliyuncs.com",
+    "textServices": [
+      "comment_detection",
+      "chat_detection"
+    ],
+    "imageService": "query_security_check",
+    "timeout": 10000
+  },
+  "moderation": {
+    "strictness": "standard",
+    "textPromptFile": "text_moderation.md",
+    "imagePromptFile": "image_moderation.md",
+    "safeguardPromptFile": "safeguard_moderation.md",
+    "doubleCheck": false,
+    "dualMode": true,
+    "reviewChannels": {
+      "local": false,
+      "cloud": true,
+      "contentSafety": true,
+      "disputeStrategy": "contentSafety"
+    },
+    "thresholds": {
+      "political": {
+        "enabled": true,
+        "logThreshold": 32,
+        "blockThreshold": 65
+      },
+      "pornographic": {
+        "enabled": true,
+        "logThreshold": 30,
+        "blockThreshold": 60
+      },
+      "marketing": {
+        "enabled": true,
+        "logThreshold": 40,
+        "blockThreshold": 75
+      },
+      "violence": {
+        "enabled": true,
+        "logThreshold": 30,
+        "blockThreshold": 60
+      },
+      "gambling": {
+        "enabled": true,
+        "logThreshold": 30,
+        "blockThreshold": 60
+      },
+      "privacy": {
+        "enabled": true,
+        "logThreshold": 40,
+        "blockThreshold": 70
+      },
+      "illegal": {
+        "enabled": true,
+        "logThreshold": 30,
+        "blockThreshold": 60
+      },
+      "abuse": {
+        "enabled": true,
+        "logThreshold": 20,
+        "blockThreshold": 50
+      },
+      "grotesque": {
+        "enabled": true,
+        "logThreshold": 40,
+        "blockThreshold": 70
+      }
+    },
+    "riskLevels": {
+      "safe": {
+        "score": 0,
+        "action": "pass",
+        "description": "内容安全，无违规风险"
+      },
+      "low": {
+        "score": 1,
+        "action": "pass_log",
+        "description": "存在轻微风险，放行但记录日志"
+      },
+      "medium": {
+        "score": 2,
+        "action": "pass_log",
+        "description": "存在中等风险，放行并记录日志供人工复查"
+      },
+      "high": {
+        "score": 3,
+        "action": "block",
+        "description": "高风险违规内容，拦截并记录"
+      },
+      "critical": {
+        "score": 4,
+        "action": "block_alert",
+        "description": "严重违规（涉政/暴恐/色情），拦截并告警"
+      }
+    },
+    "categories": [
+      {
+        "id": "political",
+        "name": "涉政内容",
+        "defaultRisk": "critical",
+        "description": "反对宪法、危害国家安全、\u98A0\u8986国家\u653F\u6743、破坏国家统一、煽动民族仇恨、破坏民族团结、宣扬邪教和封建迷信、散布谣言扰乱社会秩序等"
+      },
+      {
+        "id": "pornographic",
+        "name": "色情低俗",
+        "defaultRisk": "high",
+        "description": "淫秽色情、低俗挑逗、暴露图片、色情引流、色情资源买卖等"
+      },
+      {
+        "id": "marketing",
+        "name": "营销广告",
+        "defaultRisk": "medium",
+        "description": "过度营销、垃圾广告、虚假夸大推广、引流推广、代购推销、多级分销、诱导转发下载等"
+      },
+      {
+        "id": "violence",
+        "name": "暴力恐怖",
+        "defaultRisk": "critical",
+        "description": "暴力血腥、恐怖主义、虐待儿童、宣扬暴力、枪击针刺等伤害行为等"
+      },
+      {
+        "id": "gambling",
+        "name": "赌博诈骗",
+        "defaultRisk": "high",
+        "description": "赌博、竞猜、抽奖信息、虚假红包、虚假活动、欺诈冒充等"
+      },
+      {
+        "id": "privacy",
+        "name": "隐私侵权",
+        "defaultRisk": "medium",
+        "description": "未经授权收集传播用户个人信息、泄露他人隐私、侵犯肖像权名誉权等"
+      },
+      {
+        "id": "illegal",
+        "name": "其他违法",
+        "defaultRisk": "high",
+        "description": "外挂工具、侵权盗版、召集犯罪、违背善良风俗等其他违法违规内容"
+      },
+      {
+        "id": "abuse",
+        "name": "辱骂人身攻击",
+        "defaultRisk": "medium",
+        "description": "辱骂、人身攻击、恶意挑衅、歧视性言论、利用家庭成员称呼进行侮辱等"
+      },
+      {
+        "id": "grotesque",
+        "name": "猎奇恶心",
+        "defaultRisk": "medium",
+        "description": "详细描述排泄物、尸体、腐肉、寄生虫等令人极度不适的内容，以猎奇恶心为目的的详细描写，违背公序良俗的怪异行为描述等"
+      }
+    ]
+  },
+  "logging": {
+    "dir": "logs",
+    "moderationLog": "moderation.log",
+    "errorLog": "error.log",
+    "maxFileSize": "10m",
+    "maxFiles": 30,
+    "console": true
+  },
+  "wordDbPassword": "CHANGE_ME",
+  "adminPassword": "CHANGE_ME",
+  "moderationMode": "cloud-only",
+  "reviewChannels": {
+    "local": false
+  }
+}

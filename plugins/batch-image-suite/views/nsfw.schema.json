@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "resolver": "viewSchema",
+  "refreshOn": ["config.mode"],
+
+  "state": {
+    "taskId": null,
+    "running": false,
+    "progress": null,
+    "result": null,
+    "logLines": []
+  },
+
+  "sections": [
+    {
+      "id": "source",
+      "title": "① 选择来源",
+      "icon": "📂",
+      "collapsible": false,
+      "fields": [
+        {
+          "type": "alert",
+          "tone": "warn",
+          "content": "NSFW 模式会同时调用 **WD14 标签器**与**视觉模型**。联动策略（模式/触发/冲突/降级）在「插件管理 → wd14-tagger」中配置。"
+        },
+        {
+          "type": "folder-picker",
+          "bind": "config.sourceDir",
+          "label": "待审查文件夹（只读）",
+          "placeholder": "E:\\pictures\\待审查",
+          "validate": { "rpc": "fs.statDir" },
+          "browse": true,
+          "roots": { "rpc": "fs.roots" }
+        },
+        { "type": "switch", "bind": "config.recursive", "label": "递归读取所有子文件夹", "default": true },
+        {
+          "type": "checkbox-group", "bind": "config.formats", "label": "图片格式", "selectAll": true,
+          "options": [
+            { "value": "jpg", "label": "JPG" }, { "value": "jpeg", "label": "JPEG" },
+            { "value": "png", "label": "PNG" }, { "value": "webp", "label": "WebP" }
+          ]
+        },
+        { "type": "switch", "bind": "config.useWd14", "label": "启用 WD14 标签器通道", "default": true },
+        { "type": "slider", "bind": "config.nsfwThreshold", "label": "关注等级阈值", "min": 0, "max": 4, "step": 1, "default": 2 }
+      ]
+    },
+
+    {
+      "id": "run",
+      "title": "② 执行与进度",
+      "icon": "▶️",
+      "collapsible": false,
+      "fields": [
+        { "type": "progress", "bind": "state.progress", "label": "任务进度" },
+        { "type": "stat-cards", "bind": "state.progress.stats" },
+        { "type": "log-console", "bind": "state.logLines", "height": 160 }
+      ]
+    },
+
+    {
+      "id": "results",
+      "title": "③ 审查结果",
+      "icon": "🔍",
+      "collapsible": false,
+      "fields": [
+        {
+          "type": "gallery",
+          "source": { "rpc": "result.page", "params": { "taskId": "$state.taskId", "page": "$state.page", "pageSize": 60, "filter": "$state.levelFilter" } },
+          "bind": "state.result",
+          "pageSize": 60,
+          "filters": ["all", "safe", "low", "medium", "high", "critical"]
+        }
+      ]
+    }
+  ],
+
+  "actions": [
+    {
+      "id": "start", "type": "button", "label": "▶ 开始审查", "style": "primary",
+      "rpc": "task.start",
+      "params": { "mode": "nsfw", "sourceDir": "$config.sourceDir" },
+      "disabledWhen": { "state.running": true },
+      "onSuccess": [ { "set": { "state.taskId": "$result.taskId", "state.running": true } } ]
+    },
+    {
+      "id": "stop", "type": "button", "label": "■ 停止", "style": "danger",
+      "rpc": "task.stop", "params": { "taskId": "$state.taskId" },
+      "visibleWhen": { "state.running": true }
+    }
+  ],
+
+  "poll": [
+    {
+      "when": { "state.running": true },
+      "rpc": "task.status",
+      "params": { "taskId": "$state.taskId" },
+      "intervalMs": 1000,
+      "into": "state.progress",
+      "onResult": [ { "set": { "state.running": "$result.status === 'running'" } } ]
+    }
+  ]
+}

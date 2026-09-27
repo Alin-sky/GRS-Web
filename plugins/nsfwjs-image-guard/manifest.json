@@ -1,0 +1,125 @@
+{
+  "id": "nsfwjs-image-guard",
+  "name": "nsfwjs 本地审图",
+  "version": "1.0.0",
+  "description": "基于 nsfwjs 的本地图片 NSFW 五分类判定（Drawing / Hentai / Neutral / Porn / Sexy），把分类分数按可配置阈值与等级映射转成本系统 ModerationVerdict。nsfwjs 与 TF.js 均为可选依赖，未安装时插件自动禁用，核心与其它插件不受任何影响。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.1",
+
+  "defaultEnabled": true,
+
+  "services": {
+    "provides": ["nsfwjsGuard"],
+    "injects": ["logger", "config"]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+    "views": [
+      {
+        "id": "settings",
+        "category": "image",
+        "title": "nsfwjs 审图设置",
+        "icon": "🧪",
+        "order": 300,
+        "schemaResolver": "viewSchema"
+      }
+    ],
+    "flowRole": "node",
+    "capabilities": [
+      {
+        "id": "image.verdict",
+        "event": "moderation:verdict:image",
+        "mode": "call",
+        "outputSchema": "ModerationVerdict"
+      }
+    ],
+    "nodes": [
+      {
+        "ref": "plugin.nsfwjs-image-guard.image",
+        "title": "nsfwjs 本地审图",
+        "desc": "本地推理的 NSFW 五分类判定，零 API 费用；需要可选依赖 nsfwjs + TF.js 后端",
+        "icon": "🧪",
+        "kind": "plugin",
+        "modality": ["image"],
+        "output": "ModerationVerdict",
+        "role": "judge",
+        "defaultCombine": "branch",
+        "combineEditable": true,
+        "canParallel": true,
+        "multiInstance": true,
+        "defaultTimeoutMs": 20000,
+        "costHint": "local-compute",
+        "failurePolicyOptions": ["inherit", "block", "review"],
+        "installHint": "",
+        "configHint": "在「图片审核 → nsfwjs-image-guard」调整阈值、后端与类别映射",
+        "readinessRpc": "nsfwjs.status",
+        "params": [
+          {
+            "key": "threshold",
+            "type": "slider",
+            "label": "判定阈值",
+            "min": 0,
+            "max": 1,
+            "step": 0.05,
+            "default": 0.6,
+            "desc": "某类别预测分数达到该值才按「类别 → 风险等级映射」输出对应等级；全部低于阈值则判定 safe。"
+          },
+          {
+            "key": "topK",
+            "type": "number",
+            "label": "取前 K 个预测",
+            "min": 1,
+            "max": 5,
+            "default": 3,
+            "desc": "写入 reason 的预测条数，仅影响可读性，不影响判定。"
+          },
+          {
+            "key": "backend",
+            "type": "select",
+            "label": "计算后端",
+            "default": "tfjs-node",
+            "options": [
+              { "value": "tfjs-node", "label": "tfjs-node（原生，推荐，性能好但体积大）" },
+              { "value": "tfjs", "label": "tfjs（纯 JS，体积小但较慢）" }
+            ],
+            "desc": "切换后端需要重新加载模型；纯 JS 后端在 Node 下需要调用方额外提供像素数据或可用的图像解码器。"
+          },
+          {
+            "key": "levelMapping",
+            "type": "level-map",
+            "label": "类别 → 风险等级映射",
+            "default": {
+              "Porn": "high",
+              "Hentai": "high",
+              "Sexy": "medium",
+              "Drawing": "safe",
+              "Neutral": "safe"
+            },
+            "desc": "nsfwjs 五分类到本系统风险等级的映射；多个类别同时过阈值时取最严重者。"
+          }
+        ]
+      }
+    ],
+    "finalizers": [],
+    "floors": []
+  },
+
+  "permissions": ["rpc"],
+
+  "integrity": { "maxOutputBytes": 8192 },
+
+  "dependencies": {},
+
+  "optionalDependencies": {
+    "nsfwjs": "^2.4.2",
+    "@tensorflow/tfjs-node": "^4.20.0"
+  },
+
+  "source": { "type": "builtin" }
+}

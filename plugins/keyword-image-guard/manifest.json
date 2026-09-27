@@ -1,0 +1,133 @@
+{
+  "id": "keyword-image-guard",
+  "name": "关键词检测审图",
+  "version": "1.0.0",
+  "description": "对图片的文件名、EXIF 元数据、附带文本与上游标签做敏感词/正则匹配的轻量判定通道，输出本系统 ModerationVerdict。与 wd14-tagger 互补：wd14 负责「把图变成标签」，本插件负责「把标签与元信息变成判定」。纯 JS 零额外依赖。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.1",
+
+  "defaultEnabled": true,
+
+  "services": {
+    "provides": ["keywordImageGuard"],
+    "injects": ["logger", "config", "precheck"]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+    "views": [
+      {
+        "id": "settings",
+        "category": "image",
+        "title": "关键词检测审图",
+        "icon": "🔑",
+        "order": 310,
+        "schemaResolver": "viewSchema"
+      }
+    ],
+    "flowRole": "node",
+    "capabilities": [
+      {
+        "id": "image.verdict",
+        "event": "moderation:verdict:image",
+        "mode": "call",
+        "outputSchema": "ModerationVerdict"
+      }
+    ],
+    "nodes": [
+      {
+        "ref": "plugin.keyword-image-guard.image",
+        "title": "关键词检测审图",
+        "desc": "对文件名 / EXIF 元数据 / 附带文本 / 上游标签做敏感词匹配的轻量判定（0 依赖）",
+        "icon": "🔑",
+        "kind": "plugin",
+        "modality": ["image"],
+        "output": "ModerationVerdict",
+        "role": "judge",
+        "defaultCombine": "branch",
+        "combineEditable": true,
+        "canParallel": true,
+        "multiInstance": true,
+        "defaultTimeoutMs": 2000,
+        "costHint": "free",
+        "failurePolicyOptions": ["inherit", "block", "review"],
+        "installHint": "",
+        "configHint": "在「图片审核 → keyword-image-guard」维护关键词/正则规则与匹配来源",
+        "readinessRpc": "keywordImageGuard.status",
+        "params": [
+          {
+            "key": "sources",
+            "type": "multiselect",
+            "label": "判定来源",
+            "default": ["filename", "caption", "upstreamTags"],
+            "options": [
+              { "value": "filename", "label": "文件名" },
+              { "value": "exif", "label": "EXIF / 图片元数据" },
+              { "value": "caption", "label": "附带文本" },
+              { "value": "upstreamTags", "label": "上游标签（需前置 contribute 节点，如 wd14-tagger）" }
+            ],
+            "desc": "勾选参与匹配的信息来源；未勾选的来源不读取、不匹配。"
+          },
+          {
+            "key": "ruleSource",
+            "type": "select",
+            "label": "规则来源",
+            "default": "both",
+            "options": [
+              { "value": "plugin", "label": "仅插件内规则（单独配置，不依赖核心词库）" },
+              { "value": "precheck", "label": "仅宿主预检 API（词库不出库，只回命中分类与等级）" },
+              { "value": "both", "label": "两者都用（取最严重）" }
+            ],
+            "desc": "宿主预检 API 只返回「是否命中 + 分类 + 等级」，不返回命中词原文与词表。"
+          },
+          {
+            "key": "criticalShortCircuit",
+            "type": "switch",
+            "label": "命中最高级即短路",
+            "default": true,
+            "desc": "命中最高级敏感词时立即停止后续来源/规则的匹配（仅省算力，不改变等级：最高级一定原样输出）。"
+          },
+          {
+            "key": "levelFloor",
+            "type": "select",
+            "label": "命中后至少抬升到",
+            "default": "medium",
+            "options": [
+              { "value": "low", "label": "low" },
+              { "value": "medium", "label": "medium" },
+              { "value": "high", "label": "high" },
+              { "value": "critical", "label": "critical" }
+            ],
+            "desc": "任一命中后，最终等级不低于该值；未命中时恒为 safe。"
+          },
+          {
+            "key": "maxTagCount",
+            "type": "number",
+            "label": "最多检查上游标签数",
+            "min": 1,
+            "max": 200,
+            "default": 50,
+            "desc": "上游标签数量上限，超出部分不参与匹配（防止超长标签列表拖慢判定）。"
+          }
+        ]
+      }
+    ],
+    "finalizers": [],
+    "floors": []
+  },
+
+  "permissions": ["precheck:use"],
+
+  "integrity": { "maxOutputBytes": 8192 },
+
+  "dependencies": {},
+
+  "optionalDependencies": {},
+
+  "source": { "type": "builtin" }
+}

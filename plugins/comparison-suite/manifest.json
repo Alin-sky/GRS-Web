@@ -1,0 +1,57 @@
+{
+  "id": "comparison-suite",
+  "name": "对比审核套件",
+  "version": "1.0.0",
+  "description": "文本 + 图像双模态交叉对比审核：同一批内容用多个通道各判一次，逐条给出两两一致率与分歧明细。与 GRS 核心解耦，可独立启停。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.1",
+
+  "defaultEnabled": false,
+
+  "services": {
+    "provides": ["comparison"],
+    "injects": [
+      "comparisonSource", "comparisonStore", "comparisonProbe",
+      "comparisonCore", "comparisonEngine",
+      "logger", "config"
+    ]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+
+    "// flowRole": "task = 任务型插件：不提供审核判定能力，注册表层直接排除，不出现在画布节点面板（架构 §8.6 / 坑②）",
+    "flowRole": "task",
+
+    "capabilities": [],
+    "commands": [
+      { "id": "runNow", "title": "立即运行对比审核", "rpc": "comparison.run" }
+    ],
+    "views": [
+      {
+        "id": "main",
+        "category": "compare",
+        "title": "对比审核（插件）",
+        "icon": "🔬",
+        "order": 50,
+        "schemaResolver": "viewSchema",
+        "refreshOn": ["config.modality", "config.autoRun"]
+      }
+    ]
+  },
+
+  "permissions": [
+    "rpc", "fs:read", "fs:write", "moderation:use"
+  ],
+
+  "integrity": { "maxOutputBytes": 8192 },
+
+  "dependencies": {},
+
+  "source": { "type": "builtin" }
+}

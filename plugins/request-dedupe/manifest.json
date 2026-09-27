@@ -1,0 +1,53 @@
+{
+  "id": "request-dedupe",
+  "name": "重复审核去重",
+  "version": "1.0.0",
+  "description": "完全相同（字节级）的文本/图片输入在时间窗口内重复审核时，直接复用首次判定、跳过 AI 调用，并在审核记录中标记为「重复审核」。请求生命周期钩子型插件（非拓扑节点）。纯 JS 零额外依赖。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.1",
+
+  "defaultEnabled": true,
+
+  "services": {
+    "provides": ["requestDedupe"],
+    "injects": ["logger", "kvStore"]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+    "views": [],
+    "flowRole": "task",
+    "capabilities": [
+      {
+        "id": "request.intercept",
+        "event": "moderation:request:intercept",
+        "mode": "first",
+        "outputSchema": "ModerationVerdict"
+      },
+      {
+        "id": "verdict.observe",
+        "event": "moderation:verdict:observe",
+        "mode": "collect",
+        "outputSchema": "ModerationVerdict"
+      }
+    ],
+    "nodes": [],
+    "finalizers": [],
+    "floors": []
+  },
+
+  "permissions": ["storage:kv"],
+
+  "integrity": { "maxOutputBytes": 2097152 },
+
+  "dependencies": {},
+
+  "optionalDependencies": {},
+
+  "source": { "type": "builtin" }
+}

@@ -1,0 +1,29 @@
+# 默认按文本处理，由 Git 自动判断
+* text=auto
+
+# Windows 批处理必须是 CRLF —— 否则 CMD 解析多字节字符时会错位，
+# 把一行拆成多个乱码"命令"，并连带破坏后续命令块。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell 脚本必须是 LF —— CRLF 会让 shebang 失效
+*.sh text eol=lf
+
+# 源码与文档统一 LF
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# 二进制文件不做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.gz binary
+*.zip binary
+*.gguf binary
+*.woff binary
+*.woff2 binary

@@ -1,0 +1,89 @@
+# ─── 依赖 ───
+# 用 `node_modules*/` 而非 `node_modules/`：只写后者**不覆盖兄弟目录**，
+# 而 `npm ci` 失败/中断时会留下 `node_modules.broken-<ts>/`、`node_modules.old/` 等，
+# 它们是未被忽略的（实测 `git check-ignore node_modules.broken-x/y.js` = exit 1），
+# 会被 `git add -A` 整包收进提交（本轮真实出现过）。`node_modules*/` 一并覆盖。
+node_modules/
+node_modules*/
+
+# ─── 便携 Node.js 运行时（scripts/ensure-node.bat 自动下载，不进 git） ───
+runtime/
+
+# ─── Python 虚拟环境 / 字节码缓存（wd14 本地依赖，可由 requirements 重建，不进 git） ───
+# 实测未忽略时 `git add -A` 会把 wd14/.venv 约 1.5 万个文件 / 600MB 一起收进索引。
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ─── 敏感配置（含真实 API Key / 密码，勿提交） ───
+# 请复制 config/default.example.json 为 config/default.json 后自行填写
+config/default.json
+# 备份副本（config/default.json.bak-<时间戳> 等）**同样含真实凭据**，一律忽略。
+# 注意：这里只加忽略规则，**不要删除本地备份**（回滚还需要它）。
+config/*.bak*
+config/*backup*
+config/*.corrupt-*
+
+# ─── 敏感词库（含涉政等敏感内容，需自行维护，勿提交） ───
+data/sensitive_words.json
+data/sensitive_words.json.bak
+data/builtin-patterns.json
+data/*.bak
+
+# ─── 调试残留 ───
+.probe-cwd.txt
+
+# ─── 运行时数据（审核记录、对比结果） ───
+data/batch_results/
+data/audit_records/
+data/comparisons/
+# ★ 图片内容寻址落盘（运行时产物，随保留策略整体可删）与审核记录 DB 投影（可重建）
+data/image_blobs/
+data/audit.db*
+data/batch_tasks/
+data/export_jobs/
+data/plugins-tmp/
+data/plugin-config.json
+data/plugins-state.json
+
+# ─── 日志 ───
+logs/
+*.log
+
+# ─── 本地 GGUF 模型（大文件） ───
+models/
+
+# ─── WorkBuddy 项目数据 ───
+.workbuddy/
+
+# ─── 重构前安全备份（体积大，仅供本地回滚） ───
+.backup/
+
+# ─── 系统文件 ───
+desktop.ini
+.DS_Store
+Thumbs.db
+
+# ─── Windows 保留名垃圾文件 ───
+nul
+
+# ─── 环境变量 ───
+.env
+.env.local
+builds/
+
+# ─── AI 提示词正文（用户要求：不进公开仓库）───
+# 注意用 `prompts/*` 而非 `prompts/`：只有「不排除目录本身」才能在目录内取反。
+# 仅放行 README 与 *.example.md 骨架；真实正文本地自备（缺文件时接口返回 PROMPT_MISSING）。
+prompts/*
+!prompts/README.md
+!prompts/*.example.md
+
+# ─── AI 协作上下文（用户要求：分析记录/提示词/排查笔记单独存放，整目录不进公开仓库）───
+# 整目录忽略：里面的排查笔记、提示词草稿、会话上下文一律不上传 GitHub。
+.ai-context/
+
+# ─── Qoder 会话产物（credits 报告 / canvas，文件名含对话提示词片段）───
+# 与 .ai-context 同理：AI 会话artifact，一律不进公开仓库。
+.qoder-credits/

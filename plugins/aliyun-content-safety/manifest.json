@@ -1,0 +1,158 @@
+{
+  "id": "aliyun-content-safety",
+  "name": "阿里云内容安全",
+  "version": "1.0.0",
+  "description": "把阿里云绿网内容安全（文本 + 图片）作为审核节点插件化：SDK 走惰性可选依赖，未装 SDK → missing-deps、未配 AccessKey → not-configured，核心与其它插件均不受影响。密钥经宿主 secrets 白名单按需下发，不随 config 投影泄漏。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.1",
+
+  "defaultEnabled": true,
+
+  "services": {
+    "provides": ["aliyunContentSafety"],
+    "injects": ["logger", "config", "secrets"]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+    "ui": { "panel": "flow" },
+    "views": [
+      {
+        "id": "settings",
+        "category": "flow",
+        "title": "阿里云内容安全",
+        "icon": "☁️",
+        "order": 320,
+        "schemaResolver": "viewSchema"
+      }
+    ],
+    "flowRole": "service",
+    "capabilities": [
+      {
+        "id": "text.verdict",
+        "event": "moderation:verdict:text",
+        "mode": "call",
+        "outputSchema": "ModerationVerdict"
+      },
+      {
+        "id": "image.verdict",
+        "event": "moderation:verdict:image",
+        "mode": "call",
+        "outputSchema": "ModerationVerdict"
+      }
+    ],
+    "nodes": [
+      {
+        "ref": "plugin.aliyun-content-safety.text",
+        "title": "阿里云内容安全 · 文本",
+        "desc": "云端文本审核（comment_detection / chat_detection），按次计费；结果作为一条独立判定分支",
+        "icon": "☁️",
+        "kind": "plugin",
+        "modality": ["text"],
+        "output": "ModerationVerdict",
+        "role": "service",
+        "defaultCombine": "branch",
+        "combineEditable": true,
+        "canParallel": true,
+        "multiInstance": true,
+        "defaultTimeoutMs": 10000,
+        "costHint": "paid-api",
+        "failurePolicyOptions": ["inherit", "block", "review"],
+        "installHint": "",
+        "configHint": "在「审核配置 → 阿里云内容安全配置」填写 AccessKey 并开启内容安全",
+        "readinessRpc": "aliyunContentSafety.status",
+        "params": [
+          {
+            "key": "timeoutMs",
+            "type": "number",
+            "label": "单次调用超时（毫秒）",
+            "min": 1000,
+            "max": 60000,
+            "default": 10000,
+            "desc": "超时按节点 failed 处理（fail-closed），不会被当作放行。"
+          },
+          {
+            "key": "maxChars",
+            "type": "number",
+            "label": "最长送审字符数",
+            "min": 1,
+            "max": 20000,
+            "default": 2000,
+            "desc": "超长文本截断后再送审，控制单次计费与延迟。"
+          },
+          {
+            "key": "levelMap",
+            "type": "level-map",
+            "label": "服务建议 → 风险等级映射",
+            "default": { "block": "high", "review": "medium", "pass": "safe" },
+            "desc": "把绿网返回的 suggestion（block/review/pass）映射为本系统风险等级。"
+          }
+        ]
+      },
+      {
+        "ref": "plugin.aliyun-content-safety.image",
+        "title": "阿里云内容安全 · 图片",
+        "desc": "云端图片审核（MultiModalGuardForBase64），需要 imageEnabled 已开启；未开启时该节点不参与执行",
+        "icon": "🖼️",
+        "kind": "plugin",
+        "modality": ["image"],
+        "output": "ModerationVerdict",
+        "role": "service",
+        "defaultCombine": "branch",
+        "combineEditable": true,
+        "canParallel": true,
+        "multiInstance": true,
+        "defaultTimeoutMs": 10000,
+        "costHint": "paid-api",
+        "failurePolicyOptions": ["inherit", "block", "review"],
+        "installHint": "",
+        "configHint": "在「审核配置 → 阿里云内容安全配置」开启图片审核并填写 AccessKey",
+        "readinessRpc": "aliyunContentSafety.status",
+        "params": [
+          {
+            "key": "timeoutMs",
+            "type": "number",
+            "label": "单次调用超时（毫秒）",
+            "min": 1000,
+            "max": 60000,
+            "default": 10000,
+            "desc": "超时按节点 failed 处理（fail-closed），不会被当作放行。"
+          },
+          {
+            "key": "withCaption",
+            "type": "switch",
+            "label": "同时提交附带文本",
+            "default": true,
+            "desc": "开启后把 caption 一并送审（服务端按图文联合判断），关闭则只送图片。"
+          },
+          {
+            "key": "levelMap",
+            "type": "level-map",
+            "label": "服务建议 → 风险等级映射",
+            "default": { "block": "high", "review": "medium", "pass": "safe" },
+            "desc": "把绿网返回的 suggestion（block/review/pass）映射为本系统风险等级。"
+          }
+        ]
+      }
+    ],
+    "finalizers": [],
+    "floors": []
+  },
+
+  "permissions": ["moderation:provide", "rpc"],
+
+  "integrity": { "maxOutputBytes": 8192 },
+
+  "dependencies": {},
+
+  "optionalDependencies": {
+    "@alicloud/green20220302": "^3.4.1"
+  },
+
+  "source": { "type": "builtin" }
+}

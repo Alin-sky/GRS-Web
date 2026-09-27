@@ -1,0 +1,23 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 只安装 npm 依赖，不需要 Ollama
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# 复制源码
+COPY . .
+
+# 环境变量
+ENV NODE_ENV=production
+ENV MODERATION_MODE=cloud-only
+ENV MOD_PORT=11451
+ENV MOD_HOST=0.0.0.0
+
+EXPOSE 11451
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://localhost:11451/health || exit 1
+
+CMD ["node", "src/server.js"]

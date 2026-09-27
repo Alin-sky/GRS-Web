@@ -1,0 +1,59 @@
+{
+  "categories": {
+    "political": {
+      "name": "涉政内容",
+      "level": "critical",
+      "words": []
+    },
+    "pornographic": {
+      "name": "色情低俗",
+      "level": "high",
+      "words": []
+    },
+    "violence": {
+      "name": "暴力恐怖",
+      "level": "critical",
+      "words": []
+    },
+    "gambling": {
+      "name": "赌博诈骗",
+      "level": "high",
+      "words": []
+    },
+    "marketing": {
+      "name": "营销广告",
+      "level": "medium",
+      "words": []
+    },
+    "abuse": {
+      "name": "辱骂人身攻击",
+      "level": "medium",
+      "words": []
+    },
+    "privacy": {
+      "name": "隐私侵权",
+      "level": "medium",
+      "words": []
+    },
+    "illegal": {
+      "name": "其他违法",
+      "level": "high",
+      "words": []
+    }
+  },
+  "word_levels": {
+    "entries": {}
+  },
+  "fuzzy_chars": {
+    "mappings": {}
+  },
+  "split_chars": {
+    "mappings": {}
+  },
+  "number_map": {
+    "mappings": {}
+  },
+  "word_contexts": {
+    "entries": {}
+  }
+}

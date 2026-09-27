@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "resolver": "viewSchema",
+  "refreshOn": ["config.mode"],
+
+  "state": {
+    "taskId": null,
+    "running": false,
+    "progress": null,
+    "result": null,
+    "searchResult": null,
+    "pendingResult": null,
+    "logLines": []
+  },
+
+  "sections": [
+    {
+      "id": "source",
+      "title": "① 选择来源",
+      "icon": "📂",
+      "collapsible": false,
+      "fields": [
+        {
+          "type": "alert",
+          "tone": "info",
+          "content": "整理模式全程**只读**：只复制、不移动、不重命名、不删除任何原始文件。原始素材保持字节级不变。",
+          "visibleWhen": { "config.mode": ["organize"] }
+        },
+        {
+          "type": "folder-picker",
+          "bind": "config.sourceDir",
+          "label": "源文件夹（只读）",
+          "placeholder": "E:\\pictures\\待整理",
+          "validate": { "rpc": "fs.statDir" },
+          "browse": true,
+          "roots": { "rpc": "fs.roots" }
+        },
+        {
+          "type": "folder-picker",
+          "bind": "config.outputDir",
+          "label": "输出目录",
+          "placeholder": "E:\\pictures\\已整理",
+          "validate": { "rpc": "fs.statDir" },
+          "browse": true,
+          "visibleWhen": { "config.mode": ["organize"] }
+        },
+        { "type": "switch", "bind": "config.recursive", "label": "递归读取所有子文件夹", "default": true },
+        {
+          "type": "checkbox-group",
+          "bind": "config.formats",
+          "label": "图片格式",
+          "selectAll": true,
+          "options": [
+            { "value": "jpg", "label": "JPG" }, { "value": "jpeg", "label": "JPEG" },
+            { "value": "png", "label": "PNG" }, { "value": "webp", "label": "WebP" },
+            { "value": "gif", "label": "GIF" }, { "value": "bmp", "label": "BMP" },
+            { "value": "tiff", "label": "TIFF" }, { "value": "avif", "label": "AVIF" }
+          ]
+        },
+        { "type": "number", "bind": "config.maxFileSizeMb", "label": "单张大小上限(MB)", "min": 1, "max": 200, "default": 20 }
+      ]
+    },
+
+    {
+      "id": "strategy",
+      "title": "② 整理策略",
+      "icon": "⚙️",
+      "collapsible": true,
+      "visibleWhen": { "config.mode": ["organize"] },
+      "fields": [
+        { "type": "path-template", "bind": "config.namingTemplate", "label": "命名模板", "default": "{date}_{time}_{desc}",
+          "placeholders": ["{date}", "{time}", "{desc}", "{year}", "{month}", "{category}", "{name}"],
+          "hint": "时间未知的图片不会填入任何日期，统一归入「时间未知/」目录。" },
+        { "type": "number", "bind": "config.descMaxLen", "label": "描述最大字数", "min": 4, "max": 40, "default": 16 },
+        {
+          "type": "select", "bind": "config.collision", "label": "重名处理", "default": "suffix",
+          "options": [
+            { "value": "suffix", "label": "加序号 _1/_2" },
+            { "value": "skip", "label": "跳过" },
+            { "value": "overwrite", "label": "覆盖" }
+          ]
+        },
+        { "type": "slider", "bind": "config.dedupeThreshold", "label": "相似度阈值（汉明距离 ≤）", "min": 0, "max": 20, "step": 1, "default": 6 },
+        { "type": "switch", "bind": "config.sidecar", "label": "生成同名 .json 元数据", "default": true },
+        {
+          "type": "markdown",
+          "content": "**目录结构**：`YYYY/MM/分类/`。四类分类：人物 · 旅行风景 · 美食物件宠物 · 证件文档截图。\n疑似废图（截图/票据/模糊/黑图/重复副本）进入输出目录内的 `_待后续筛选_无用候选/{原因}/`。"
+        }
+      ]
+    },
+
+    {
+      "id": "pipeline",
+      "title": "③ 流水线阶段",
+      "icon": "🧩",
+      "collapsible": true,
+      "fields": [
+        {
+          "type": "checkbox-group", "bind": "config.stages", "label": "启用的阶段", "selectAll": true,
+          "options": [
+            { "value": "scan", "label": "扫描" }, { "value": "decode", "label": "解码" },
+            { "value": "exif", "label": "EXIF 时间" }, { "value": "phash", "label": "感知哈希" },
+            { "value": "classify", "label": "AI 分类（第二遍）" }, { "value": "dedupe", "label": "去重分组" },
+            { "value": "triage", "label": "废片预筛" }, { "value": "materialize", "label": "实体化输出" },
+            { "value": "report", "label": "生成报告" }
+          ]
+        },
+        {
+          "type": "checkbox-group", "bind": "config.aiScope", "label": "进第二遍（视觉模型）的规则", "selectAll": true,
+          "options": [
+            { "value": "timeUnknown", "label": "时间未知" },
+            { "value": "fsExifGap", "label": "EXIF 与文件时间差 >5 年" },
+            { "value": "needDescription", "label": "用户标记需描述" },
+            { "value": "lowConfidencePending", "label": "待筛置信度低" },
+            { "value": "nsfwMedium", "label": "NSFW ≥ medium" }
+          ]
+        },
+        { "type": "select", "bind": "config.categoryId", "label": "Prompt 分类", "default": "general",
+          "options": [{ "value": "general", "label": "普通图片" }, { "value": "anime", "label": "动漫图片" }, { "value": "photo", "label": "摄影图片" }] },
+        { "type": "text", "bind": "config.kindKey", "label": "Prompt 种类键值", "default": "auto" },
+        { "type": "button", "label": "✎ 编辑 Prompt JSON", "style": "ghost", "rpc": "prompt.get", "into": "state.promptJson" }
+      ]
+    },
+
+    {
+      "id": "run",
+      "title": "④ 执行",
+      "icon": "▶️",
+      "collapsible": false,
+      "fields": [
+        { "type": "progress", "bind": "state.progress", "label": "任务进度" },
+        { "type": "steps", "bind": "state.progress", "stages": ["扫描", "第一遍", "去重", "第二遍", "输出", "报告"] },
+        { "type": "stat-cards", "bind": "state.progress.stats" },
+        { "type": "log-console", "bind": "state.logLines", "height": 180 }
+      ]
+    },
+
+    {
+      "id": "results",
+      "title": "⑤ 结果检索与画廊",
+      "icon": "🖼️",
+      "collapsible": true,
+      "fields": [
+        {
+          "type": "search-bar",
+          "bind": "state.query",
+          "label": "关键词检索（描述/分类/种类/标签/原文件名/新路径）",
+          "rpc": "search",
+          "fields": ["description", "category", "kind", "srcName", "outPath", "tags"]
+        },
+        {
+          "type": "gallery",
+          "source": { "rpc": "result.page", "params": { "taskId": "$state.taskId", "page": "$state.page", "pageSize": 60 } },
+          "bind": "state.result",
+          "groupBy": "similarGroupId",
+          "pageSize": 60
+        },
+        {
+          "type": "pending-review-browser",
+          "source": { "rpc": "pending.page", "params": { "taskId": "$state.taskId", "page": "$state.pendingPage", "pageSize": 60 } },
+          "bind": "state.pendingResult",
+          "restore": { "rpc": "pending.restore" },
+          "reasons": ["screenshot", "document", "blurry", "black", "duplicate", "unsupported"]
+        }
+      ]
+    }
+  ],
+
+  "actions": [
+    {
+      "id": "start", "type": "button", "label": "▶ 开始处理", "style": "primary",
+      "rpc": "task.start",
+      "params": { "mode": "$config.mode", "sourceDir": "$config.sourceDir", "outputDir": "$config.outputDir" },
+      "confirm": { "title": "确认开始", "message": "原始文件不会被修改或删除，全部以复制方式输出到目标目录。" },
+      "disabledWhen": { "state.running": true },
+      "onSuccess": [
+        { "set": { "state.taskId": "$result.taskId", "state.running": true } },
+        { "toast": "任务已启动" }
+      ]
+    },
+    {
+      "id": "stop", "type": "button", "label": "■ 停止", "style": "danger",
+      "rpc": "task.stop", "params": { "taskId": "$state.taskId" },
+      "visibleWhen": { "state.running": true },
+      "onSuccess": [ { "set": { "state.running": false } } ]
+    },
+    {
+      "id": "resume", "type": "button", "label": "⟲ 继续上次任务", "style": "ghost",
+      "rpc": "task.resume",
+      "visibleWhen": { "state.running": false }
+    },
+    {
+      "id": "report", "type": "file-download", "label": "⬇ 下载 report.txt", "style": "ghost",
+      "source": { "rpc": "task.results", "params": { "taskId": "$state.taskId" } }
+    }
+  ],
+
+  "poll": [
+    {
+      "when": { "state.running": true },
+      "rpc": "task.status",
+      "params": { "taskId": "$state.taskId" },
+      "intervalMs": 1000,
+      "into": "state.progress",
+      "onResult": [ { "set": { "state.running": "$result.status === 'running'" } } ]
+    },
+    {
+      "when": { "state.taskId": null, "state.running": false },
+      "rpc": "task.log",
+      "params": { "taskId": "$state.taskId" },
+      "intervalMs": 3000,
+      "into": "state.logLines"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "afdian-intent",
+  "name": "爱发电输入意图分类",
+  "version": "1.0.0",
+  "description": "为爱发电充电榜（afdian-rank）的昵称/留言提供意图分类（praise 致意 / request 求助 / private 私聊 / ad 广告 / normal 正常），把 request·private·ad 映射进客户端 hideCategories（request/solicitation/ad）以隐藏留言。经既有「插件 RPC → HTTP」桥暴露独立端点 POST /api/p/afdian-intent/rpc，可选复用注入的 moderator 服务跑 GRS 风险审核后合并意图，与审核本体解耦（不改任何核心文件）。纯 JS 零额外依赖。",
+  "author": "内置",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "host": { "minVersion": "0.1.0" },
+
+  "hostApi": "1.1",
+
+  "defaultEnabled": true,
+
+  "services": {
+    "provides": ["afdianIntent"],
+    "injects": ["logger", "config", "moderator"]
+  },
+
+  "contributes": {
+    "config": { "schemaResolver": "configSchema" },
+    "views": [],
+    "flowRole": "task",
+    "capabilities": [],
+    "nodes": [],
+    "finalizers": [],
+    "floors": []
+  },
+
+  "permissions": ["moderation:use"],
+
+  "integrity": { "maxOutputBytes": 65536 },
+
+  "dependencies": {},
+
+  "optionalDependencies": {},
+
+  "source": { "type": "builtin" }
+}

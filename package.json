@@ -1,0 +1,52 @@
+{
+  "name": "grs-moderator",
+  "version": "0.1.0",
+  "description": "GRS-通用审核系统：面向 QQ / Koishi 机器人的多通道 AI 审核（文本 + 图片），本地 Ollama、云端大模型、阿里云内容安全均可选，含提示词注入防御与敏感词预检兜底",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:cloud": "cross-env MODERATION_MODE=cloud-only node src/server.js",
+    "dev": "node --watch src/server.js",
+    "setup": "node scripts/setup.js",
+    "test": "node scripts/test.js",
+    "lint:plugins": "node scripts/lint-plugin-boundary.js && node scripts/lint-plugin-ui.js && node scripts/lint-plugin-config-schema.js",
+    "test:injection": "node scripts/test-injection.js",
+    "test:conflicts": "node scripts/test-config-conflicts.js",
+    "test:flow-merge": "node scripts/test-flow-merge.js",
+    "test:flow-validate": "node scripts/test-flow-validate.js",
+    "test:flow-executor": "node scripts/test-flow-executor.js",
+    "test:model-catalog": "node scripts/test-model-catalog.js",
+    "test:audit-dualwrite": "node scripts/test-audit-dualwrite.js",
+    "test:image-ref": "node scripts/test-image-ref.js",
+    "test:billing-guard": "node scripts/test-billing-guard-live.js",
+    "test:e2e": "node scripts/e2e-regression.js",
+    "test:h1-dual-mode": "node scripts/test-h1-dual-mode-topology.js",
+    "test:image-policy": "node scripts/test-image-policy.js",
+    "check:publish": "node scripts/pre-publish-check.js",
+    "qa:branding": "node scripts/qa-branding.js",
+    "qa:topology-truth": "node scripts/qa-topology-truth.js",
+    "qa:history-modality": "node scripts/qa-history-modality.js"
+  },
+  "keywords": [
+    "ollama",
+    "qwen",
+    "moderation",
+    "content-safety",
+    "qq-bot",
+    "ai-moderation"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "cordis": "4.0.0-rc.9",
+    "express": "^4.21.0",
+    "pinyin-pro": "^3.28.2",
+    "sharp": "^0.35.4"
+  },
+  "optionalDependencies": {
+    "@alicloud/green20220302": "^3.4.1"
+  }
+}
