@@ -11,6 +11,9 @@ const { listComparisons, getComparisonResult, getStatus: getComparisonStatus } =
 const { getAuditRecords, getAuditStats, getDetailedStats, listAuditDates, getDateStr, getDualWriteStatus, flushAuditDb } = require('./audit-store');
 // v0.2.0：图片内容寻址读取/容量 与 审核记录 DB 投影（对账/回灌）
 const imageRefModule = require('./image-ref');
+// 审核记录筛查口径（分类 / 关键词 / 精确 id）集中到零依赖纯函数模块：服务端两条读取路径与
+// 前端「下钻 → 打开这条记录」共用同一份判定，避免各处口径漂移。
+const auditFilter = require('./audit-filter');
 // v0.1.2：URL-only 图片输入 —— 服务端自行下载并按策略转码（仅做「字节来源」归一化，先于审核）
 const imageSource = require('./image-source');
 const auditDb = require('./audit-db');
@@ -838,6 +841,13 @@ app.get('/api/audit-records', (req, res) => {
   // type 只接受 text|image（其余值视为未传，避免把非法值当成筛选条件改变响应）
   const fType = (req.query.type === 'text' || req.query.type === 'image') ? String(req.query.type) : null;
   const fCategory = req.query.category ? String(req.query.category) : null;
+  // 本轮新增两项筛查参数（均可选；不传 ⇒ 响应与现状逐字节一致）：
+  //   q  = 关键词，对「待审文本 / 判定理由 / 记录 id / userId / groupId / scene」做大小写不敏感子串匹配，
+  //        空格分词取 AND（每个词都要命中）。
+  //   id = 精确取某一条记录，供「统计下钻 → 在审核记录中打开这条」确定性落位，
+  //        不再依赖分页窗口居中 + 前端显示过滤（旧做法会把口径不符的目标记录藏成 display:none）。
+  const fQ = req.query.q ? String(req.query.q) : null;
+  const fId = req.query.id ? String(req.query.id) : null;
   const rawLimit = parseInt(req.query.limit, 10);
   const fLimit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100000) : null;
   // 分页偏移（默认 0）。与 limit 一样只做结果集截断，不参与「是否走 DB」的判断。
@@ -867,16 +877,13 @@ app.get('/api/audit-records', (req, res) => {
     }
   }
   if (!records) records = getAuditRecords(dateStr);
-  // category 无对应 DB 列，统一在结果集上过滤（DB 路径与 JSONL 路径同一份判定逻辑）。
+  // category / id / q 都没有对应 DB 列，统一在结果集上过滤。判定口径由 src/audit-filter 单点定义
+  // （DB 与 JSONL 两条路径同构，见 audit-db.query 的「与 JSONL 记录同构」注释），
+  // 由 scripts/test-audit-filter.js 离线锁定，前端跳转亦复用同一语义。
   // `unclassified` = 违规但没有 categories —— 判定只读布尔 passed，不用 action/risk_level 反推。
-  if (fCategory) {
-    records = records.filter((r) => {
-      const result = r.result || {};
-      const cats = Array.isArray(result.categories) ? result.categories.filter(Boolean) : [];
-      if (fCategory === 'unclassified') return result.passed === false && cats.length === 0;
-      return cats.includes(fCategory);
-    });
-  }
+  if (fCategory) records = records.filter((r) => auditFilter.matchesCategory(r, fCategory));
+  if (fId) records = records.filter((r) => auditFilter.matchesId(r, fId));
+  if (fQ) records = records.filter((r) => auditFilter.matchesKeyword(r, fQ));
   // type 已由 DB 的 modality 列过滤；仅当未走 DB 时才需要兜底（判定与 audit-db.toRow 同口径）
   if (fType && !usedDb) {
     records = records.filter((r) => auditDb.toRow(r).modality === fType);

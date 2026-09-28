@@ -2727,7 +2727,32 @@ h1, h2, h3, h4 { line-height: var(--lh-tight); }
           <button type="button" class="hfilter-btn" data-filter="text" onclick="setHistoryFilter('text')">文本</button>
           <button type="button" class="hfilter-btn" data-filter="image" onclick="setHistoryFilter('image')">图片</button>
         </div>
-        <span id="historyCatChip"></span>
+        <!-- 筛查（本轮新增，走服务端 /api/audit-records）：关键词 q / 分类 category / 风险 risk / 结果 passed。
+             与上方「全部/文本/图片」纯前端显示过滤叠加（AND）。留空即不发送该参数 ⇒ 行为与旧版一致。 -->
+        <input type="search" id="historyQuery" placeholder="关键词：内容/理由/记录ID/用户/场景" aria-label="关键词筛查"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:13px;width:250px"
+          oninput="onHistoryScreenInput()" onchange="loadHistory()">
+        <select id="historyCat" onchange="loadHistory()" title="按分类筛查（服务端）"
+          style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;height:32px;box-sizing:border-box">
+          <option value="">全部分类</option>
+        </select>
+        <select id="historyRisk" onchange="loadHistory()" title="按风险等级筛查（服务端）"
+          style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;height:32px;box-sizing:border-box">
+          <option value="">全部风险</option>
+          <option value="safe">safe</option>
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+          <option value="critical">critical</option>
+        </select>
+        <select id="historyPassed" onchange="loadHistory()" title="按审核结果筛查（服务端）"
+          style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;height:32px;box-sizing:border-box">
+          <option value="">全部结果</option>
+          <option value="false">仅拦截</option>
+          <option value="true">仅放行</option>
+        </select>
+        <button class="btn btn-ghost" onclick="clearHistoryScreen()" title="清除关键词/分类/风险/结果筛查">清除筛查</button>
+        <span id="historyScreenCount" style="font-size:12px;color:var(--text-dim)"></span>
         <button class="btn btn-ghost" onclick="loadHistory()">刷新</button>
       </div>
       <div id="historyList"><div class="empty-state">点击刷新加载记录</div></div>
@@ -5256,10 +5281,13 @@ async function runBatch() {
 function clearBatch() { document.getElementById('batchResults').innerHTML = ''; }
 
 // ─── History ───
-// R6：审核记录「全部/文本/图片」筛选状态（纯前端；请求仍只带 ?date=，绝不新增 ?type=）
+// 分工（本轮理清，避免两套口径打架）：
+//   · 「全部/文本/图片」= **纯前端显示过滤**，只切 DOM 可见性，请求不带 ?type=。
+//   · 分类 / 关键词 / 风险 / 结果 = **服务端筛查**（readHistoryScreen + loadHistory 拼 URL）。
+// 原先「统计下钻带入的前端分类过滤 + chip」已整条删除：它把下钻分类塞进显示过滤器，
+// 而饼图 scores 口径里的类目未必出现在该记录 categories 中，于是目标记录自己被 display:none，
+// 表现就是「这条记录点不开」。分类上下文由下钻标题承担，不需要再当过滤器。
 let _historyFilter = 'all';
-// 分类过滤由「统计面板下钻」带入。与「全部/文本/图片」正交，可叠加，亦可单独清除。
-let _historyCategory = null;
 
 /**
  * 切换审核记录筛选（全部 / 文本 / 图片）。纯前端：只改 DOM 可见性，不发起任何请求。
@@ -5273,47 +5301,100 @@ function setHistoryFilter(f) {
   applyHistoryFilter();
 }
 
-/** 清掉下钻带来的分类过滤（不影响「全部/文本/图片」选择）。 */
-function clearHistoryCategory() {
-  _historyCategory = null;
-  renderHistoryCatChip();
-  applyHistoryFilter();
-}
-
-/** 渲染/隐藏分类过滤 chip —— 让「为什么列表变短了」始终有可见解释，不会变成幽灵过滤。 */
-function renderHistoryCatChip() {
-  const host = document.getElementById('historyCatChip');
-  if (!host) return;
-  if (!_historyCategory) { host.innerHTML = ''; return; }
-  host.innerHTML = `<span class="risk-badge" style="font-size:11px;padding:3px 8px;background:var(--card);color:var(--text);border:1px solid var(--border)">
-      分类：${escapeHtml(catLabel(_historyCategory))}
-      <button type="button" onclick="clearHistoryCategory()" aria-label="清除分类过滤"
-        style="appearance:none;border:0;background:transparent;color:var(--text-dim);cursor:pointer;font-size:12px;padding:0 0 0 6px">✕</button>
-    </span>`;
-}
-
 /**
- * 依据 _historyFilter（类型）与 _historyCategory（分类）切换 `#historyList` 内各记录的可见性。
+ * 依据 _historyFilter（类型）切换 `#historyList` 内各记录的可见性。
  * 图片记录判定：日志携带 `image_ref.hash`（与后端审核记录口径一致）；旧记录无该字段 → 归为文本，优雅退化。
- * 分类判定用 data-cats（渲染时写入）；`unclassified` 表示「拦截但无类别」。
  */
 function applyHistoryFilter() {
   const items = document.querySelectorAll('#historyList .history-item');
   let shown = 0;
   items.forEach((el) => {
     const isImg = el.dataset.img === '1';
-    const typeOk = _historyFilter === 'image' ? isImg : (_historyFilter === 'text' ? !isImg : true);
-    let catOk = true;
-    if (_historyCategory) {
-      const cats = (el.dataset.cats || '').split(',').filter(Boolean);
-      catOk = _historyCategory === 'unclassified' ? cats.length === 0 : cats.indexOf(_historyCategory) >= 0;
-    }
-    const match = typeOk && catOk;
+    const match = _historyFilter === 'image' ? isImg : (_historyFilter === 'text' ? !isImg : true);
     el.style.display = match ? '' : 'none';
     if (match) shown += 1;
   });
   const emptyEl = document.getElementById('historyFilterEmpty');
   if (emptyEl) emptyEl.style.display = (items.length > 0 && shown === 0) ? '' : 'none';
+}
+
+// ─── 审核记录筛查（本轮新增）─────────────────────────────────────
+// 关键词 / 分类 / 风险 / 结果 四项**全部走服务端** /api/audit-records（q | category | risk | passed），
+// 再与上方「全部/文本/图片」的纯前端显示过滤叠加（AND）。留空 ⇒ 不发送该参数，请求与旧版逐字节一致。
+// 判定口径由服务端 src/audit-filter.js 单点定义（scripts/test-audit-filter.js 离线锁定）。
+let _histScreenTimer = null;
+
+/** 用 CAT_META 填充分类下拉（附「未分类」= 违规但无类目）。由 Init 调用一次。 */
+function initHistoryScreen() {
+  const sel = document.getElementById('historyCat');
+  if (!sel || sel.options.length > 1) return;
+  Object.keys(CAT_META).forEach((k) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = CAT_META[k].label;
+    sel.appendChild(o);
+  });
+  const un = document.createElement('option');
+  un.value = 'unclassified';
+  un.textContent = '未分类（违规无类目）';
+  sel.appendChild(un);
+}
+
+/** 读取当前筛查条件；空值归一为 null（null ⇒ 不发送该参数）。 */
+function readHistoryScreen() {
+  const g = (id) => {
+    const el = document.getElementById(id);
+    const v = el && el.value ? String(el.value).trim() : '';
+    return v || null;
+  };
+  return { q: g('historyQuery'), category: g('historyCat'), risk: g('historyRisk'), passed: g('historyPassed') };
+}
+
+/** 关键词输入防抖 400ms，避免逐字符打服务端。 */
+function onHistoryScreenInput() {
+  clearTimeout(_histScreenTimer);
+  _histScreenTimer = setTimeout(() => { loadHistory(); }, 400);
+}
+
+function clearHistoryScreen() {
+  ['historyQuery', 'historyCat', 'historyRisk', 'historyPassed'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  loadHistory();
+}
+
+// ─── 全局「加载中」小浮层（本轮新增）────────────────────────────
+// 统计面板 / 违规下钻 / 审核记录 都要拉当天数据，耗时可能数秒；旧做法只在各自容器里写一行
+// 「加载中...」，长请求期间缺少全局进展反馈。这里做引用计数浮层：并发请求共用一个，全部落地才收起。
+let _loadingRefs = 0;
+function showLoadingCard(msg) {
+  _loadingRefs += 1;
+  let card = document.getElementById('grsLoadingCard');
+  if (!card) {
+    const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const mark = reduce
+      ? '<span aria-hidden="true">⏳</span>'
+      : '<span aria-hidden="true" style="width:14px;height:14px;border:2px solid rgba(128,128,128,.35);border-top-color:currentColor;border-radius:50%;display:inline-block;animation:spin .6s linear infinite"></span>';
+    card = document.createElement('div');
+    card.id = 'grsLoadingCard';
+    card.setAttribute('role', 'status');
+    card.setAttribute('aria-live', 'polite');
+    card.style.cssText = 'position:fixed;top:64px;right:20px;z-index:10002;display:flex;align-items:center;gap:10px;'
+      + 'padding:10px 16px;border-radius:10px;background:var(--card);border:1px solid var(--border);'
+      + 'color:var(--text);font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.28)';
+    card.innerHTML = `${mark}<span id="grsLoadingText">加载中...</span>`;
+    document.body.appendChild(card);
+  }
+  const t = document.getElementById('grsLoadingText');
+  if (t && msg) t.textContent = msg;
+}
+function hideLoadingCard() {
+  _loadingRefs = Math.max(0, _loadingRefs - 1);
+  if (_loadingRefs === 0) {
+    const c = document.getElementById('grsLoadingCard');
+    if (c) c.remove();
+  }
 }
 
 // 审核记录分页：单页 100 条，按需「加载更多」增量追加，避免一次性渲染上万条 DOM 卡死页面。
@@ -5322,11 +5403,16 @@ let _histState = { offset: 0, totalAll: 0, date: '', loading: false };
 
 /**
  * 加载审核记录。
- * @param {boolean|{append?:boolean, findId?:string}} [opts] true=追加下一页；对象可指定 findId（下钻跳转，窗口对齐到该记录）。
+ * @param {boolean|{append?:boolean, findId?:string, recordId?:string}} [opts] true=追加下一页；
+ *        findId=把分页窗口对齐到该记录；recordId=用服务端 ?id= 精确取这一条（下钻跳转，推荐）。
  */
 async function loadHistory(opts) {
   const append = opts === true || (opts && opts.append === true);
   const findId = (opts && opts.findId) ? String(opts.findId) : null;
+  // recordId：服务端 ?id= 精确取**某一条**。统计下钻「打开这条记录」改走这条路 ——
+  // 旧做法（find_id 居中窗口 + 前端按分类 display:none）会把口径不符的目标记录藏起来，
+  // 而 querySelector 仍能命中隐藏节点，于是 click()/scrollIntoView() 毫无可见效果（本轮修复的缺陷）。
+  const recordId = (opts && opts.recordId) ? String(opts.recordId) : null;
   const container = document.getElementById('historyList');
   const dateInput = document.getElementById('historyDate');
   let date = dateInput?.value;
@@ -5337,13 +5423,26 @@ async function loadHistory(opts) {
   if (!append) {
     container.innerHTML = '<div class="empty-state">加载中...</div>';
     _histState = { offset: 0, totalAll: 0, date, loading: false };
+    showLoadingCard('正在加载审核记录...');
   }
-  if (_histState.loading) return;
+  if (_histState.loading) { if (!append) hideLoadingCard(); return; }
   _histState.loading = true;
   const base = _histState.offset;
   try {
     let url = `${API}/api/audit-records?date=${encodeURIComponent(date)}&order=desc&limit=${HISTORY_PAGE_SIZE}&offset=${base}`;
     if (findId) url += `&find_id=${encodeURIComponent(findId)}`;
+    if (recordId) {
+      // 精确取单条：故意**不**附带筛查条件 —— 「打开这一条」的语义是定位该记录本身，
+      // 不能被用户当前输入的关键词/分类条件连带排除掉。
+      url += `&id=${encodeURIComponent(recordId)}`;
+    } else {
+      // 服务端筛查（本轮新增）：留空不发送 ⇒ 请求与旧版逐字节一致。
+      const scr = readHistoryScreen();
+      if (scr.category) url += `&category=${encodeURIComponent(scr.category)}`;
+      if (scr.risk) url += `&risk=${encodeURIComponent(scr.risk)}`;
+      if (scr.passed) url += `&passed=${encodeURIComponent(scr.passed)}`;
+      if (scr.q) url += `&q=${encodeURIComponent(scr.q)}`;
+    }
     const res = await fetch(url);
     const data = await res.json();
     // 服务端可能因 find_id 调整了窗口起点，以它返回的 offset 为准（保证全局索引与 DOM 顺序一致）。
@@ -5576,14 +5675,25 @@ async function loadHistory(opts) {
         if (ph) ph.style.display = '';
       });
     });
-    // R6：渲染完成后按当前「全部/文本/图片」选择重新落地可见性（纯前端过滤，无二次请求）
-    renderHistoryCatChip();
+    // 筛查命中计数：仅在任一筛查条件生效时显示，平时不多一行噪音；精确定位单条时不显示（会误导）。
+    const cntEl = document.getElementById('historyScreenCount');
+    if (cntEl) {
+      if (recordId) {
+        cntEl.textContent = '';
+      } else {
+        const s = readHistoryScreen();
+        const active = Boolean(s.q || s.category || s.risk || s.passed);
+        cntEl.textContent = active ? `筛查命中 ${_histState.totalAll} 条` : '';
+      }
+    }
+    // 渲染完成后按当前「全部/文本/图片」选择重新落地可见性（纯前端显示过滤，无二次请求）
     applyHistoryFilter();
   } catch (err) {
     if (!append) container.innerHTML = '<div class="empty-state">加载失败</div>';
     else if (typeof showToast === 'function') showToast('加载更多失败：' + (err && err.message ? err.message : err), 'error');
   } finally {
     _histState.loading = false;
+    if (!append) hideLoadingCard();   // 与开头 showLoadingCard 成对；引用计数保证嵌套请求不会提前收起
   }
 }
 
@@ -7983,6 +8093,7 @@ function renderModelCostTable(byModel) {
 }
 
 async function loadStats() {
+  showLoadingCard('正在加载统计面板...');
   try {
     const res = await fetch('/api/stats/summary?days=7');
     if (!res.ok) throw new Error('请求失败');
@@ -8061,14 +8172,17 @@ async function loadStats() {
 
   } catch(err) {
     console.error('加载统计失败:', err);
+  } finally {
+    hideLoadingCard();   // 与开头 showLoadingCard 成对；引用计数保证与其它并发请求互不提前收起
   }
 }
 
 // ─── 违规下钻（统计面板 → 该类违规内容明细）────────────────────
-// 走既有 /api/audit-records?date=… 拉当天记录后**在前端按分类过滤**：
-// 该端点「无筛选参数时行为逐字节不变」是项目硬约束，且当天记录本就在内存里，
-// 前端过滤不必依赖任何新参数或服务端重启。limit 不可加：记录按时间升序返回，
-// 截断会把当天最新的违规记录切掉，且 Drill 的目标分类可能一条都不剩。
+// 本轮改走**服务端分类筛查**：`/api/audit-records?date=…&category=…`（判定口径单点定义在
+// src/audit-filter.js，与审核记录列表完全一致），只回传该类记录 —— 旧做法拉当天全量再前端过滤，
+// 大流量日要传几 MB、卡数秒（也正是本轮「加载中要有反馈」这个诉求的来源）。
+// _drillMatch 保留作二次校验（与 ?category= 等价：违规且 categories 含该类目；unclassified=违规无类目），
+// 所以「文本/图片」子筛选与计数逻辑不变。不加 limit —— 明细要一次看全，不做分页。
 let _drillState = { cat: null, date: '', logs: [], filter: 'all', open: -1, loading: false };
 
 function _drillMatch(log) {
@@ -8199,8 +8313,13 @@ async function openCategoryDrilldown(cat) {
   _escHandler = (e) => { if (e.key === 'Escape') closeCategoryDrilldown(); };
   document.addEventListener('keydown', _escHandler);
 
+  showLoadingCard(`正在加载「${catLabel(cat)}」违规明细...`);
   try {
-    const res = await fetch(`${API}/api/audit-records?date=${encodeURIComponent(_drillState.date)}`);
+    // 改为**服务端按分类筛查**（?category=）：判定口径与审核记录、src/audit-filter 完全一致，
+    // 且只回传该类记录。旧做法是拉当天全量再在前端过滤 —— 当天记录多时要传几 MB、卡数秒，
+    // 正是本轮「加载中要有反馈」这个诉求的来源。结果集与旧前端过滤等价
+    // （_drillMatch 本来就要求 categories 含该类目 / unclassified=违规且无类目）。
+    const res = await fetch(`${API}/api/audit-records?date=${encodeURIComponent(_drillState.date)}&category=${encodeURIComponent(cat)}`);
     const data = await res.json();
     _drillState.logs = (data.logs || []).map((log, i) => Object.assign(log, { __i: i }));
     _drillState.loading = false;
@@ -8212,6 +8331,8 @@ async function openCategoryDrilldown(cat) {
     _drillState.loading = false;
     const body = document.getElementById('drillBody');
     if (body) body.innerHTML = '<div class="empty-state">加载失败，请稍后重试</div>';
+  } finally {
+    hideLoadingCard();
   }
 }
 
@@ -8228,21 +8349,35 @@ let _escHandler = null;
  */
 async function openRecordInHistory(date, id, cat) {
   closeCategoryDrilldown();
-  _historyCategory = cat || null;
   const dateInput = document.getElementById('historyDate');
   if (dateInput) dateInput.value = date;
-  // 跳过 tab.click() 自带的自动加载，避免与下面带 findId 的加载竞争（loading 守卫会吞掉后者）。
+  // 定位这条记录不依赖任何前端显示过滤条件：饼图有 verdict(by_category) 与 scores(by_category_scored)
+  // 两套口径，scores 里的类目未必在该记录 categories 中。旧写法把下钻分类当显示过滤器套用，
+  // 目标记录自己就被 display:none，而 querySelector 照样命中隐藏节点，click()/scrollIntoView()
+  // 落在隐藏节点上就表现为「点了没反应」。分类上下文由下钻标题承担，不参与定位。
+  setHistoryFilter('all');
+  // 跳过 tab.click() 自带的自动加载，避免与下面 recordId 的加载竞争（loading 守卫会吞掉后者）。
   window._histSkipAutoLoad = true;
   const tab = document.querySelector('.tab[data-tab="history"]');
   if (tab) tab.click();
   window._histSkipAutoLoad = false;
-  renderHistoryCatChip();
-  // 分页下：用 find_id 让服务端把窗口对齐到目标记录，否则它可能不在首页 100 条内。
-  await loadHistory({ findId: id });
-  const el = document.querySelector(`#historyList .history-item[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`);
-  if (el) {
+
+  if (!id) {   // 早期记录没有 id：无法精确定位，退化为加载当天列表并如实告知，不假装成功
+    await loadHistory();
+    if (typeof showToast === 'function') showToast('这条记录没有可定位的 id，已改为加载当天记录');
+    return;
+  }
+  // 服务端 ?id= 精确取这一条：不受分页窗口、也不受筛查条件牵连，必然出现在结果里。
+  await loadHistory({ recordId: String(id) });
+  const esc = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
+  const el = document.querySelector(`#historyList .history-item[data-id="${esc}"]`);
+  if (el && el.offsetParent !== null) {          // 只在「确实可见」时展开 + 滚动
     if (!el.classList.contains('expanded')) el.click();
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } else if (typeof showToast === 'function') {
+    showToast(el
+      ? '这条记录被当前筛选隐藏，请点「清除筛查」后重试'
+      : `未找到这条记录（分类「${cat ? catLabel(cat) : '未知'}」，可能日期不符或已被清理）`);
   }
 }
 
@@ -9696,8 +9831,10 @@ checkHealth();
 initPresets();
 autoDetectRunningTask(); // 页面加载时自动检测是否有正在运行的扫描任务
 mountCfgCards();         // D3：配置卡片池**页面加载即挂载**（不再等首次进入「审核配置」Tab）
-loadFlowFaults();        // R4：页面加载即拉取拓扑故障并渲染红色告警条
-loadTopologyHint();      // T08b：页面加载即按**实际拓扑**渲染「云端审核配置」卡的说明文案
+initHistoryScreen();     // 填充审核记录的「分类」筛查下拉（取自 CAT_META，含 unclassified）
+// R4/T08b 的两个页面加载调用已移到「它们各自定义所在的 script 块」末尾。
+// 经典 script 块按文档顺序执行、且不跨块提升函数，留在本块调用会抛 ReferenceError
+// 并中断本块后续语句（曾导致拓扑故障条与拓扑说明在页面加载时都不渲染）。
 
 // 定时任务：只在已认证时执行
 function initTimers() {
@@ -10940,6 +11077,12 @@ function showToast(msg) {
   }
   renderPluginViews();
 })();
+
+// ─── R4 / T08b：页面加载即拉取拓扑故障红色告警条 + 按实际拓扑渲染云端配置卡说明 ───
+// 必须留在**本块**（即这两个函数的定义块）调用：前面的 Init 块跨 script 块取不到它们，
+// 在旧位置调用会抛 ReferenceError 并中断整个 Init 尾部。
+loadFlowFaults();
+loadTopologyHint();
 </script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
